@@ -269,6 +269,8 @@
       this.model.cardCollection.on('change:isArchived', this.updateCardQuantity, this);
       this.model.cardCollection.on('change:isArchived', this.addAll, this);
 
+      this.model.cardCollection.on('add remove change reset', this.render, this);
+
       this.cardViewCache = {};
     },
 

@@ -346,7 +346,7 @@
       _.bindAll(this, "render");
       this.model.on('change', this.onModelChange, this);
       this.model.on('change:isArchived', this.isArchivedChanged, this);
-      this.model.on('change:order change:listId', this.refreshCardOrder, this);
+      // this.model.on('change:order change:listId', this.refreshCardOrder, this);
       this.model.on('remove', this.remove, this);
 
       this.cardLabelCollection = new cantas.models.CardLabelRelationCollection();
@@ -377,6 +377,9 @@
     render: function() {
       var data = this.model.toJSON();
       data.index = this.attributes.index;
+      data.coverURL = this.getCoverUrl(data.cover);
+      data.checkitemsProgress = data.badges.checkitemsChecked + '/' + data.badges.checkitems;
+      data.badgesVotes = data.badges.votesYes + '/' + data.badges.votesNo;
 
       this.$el.empty();
       this.$el.html(this.template(data));
@@ -422,6 +425,16 @@
       this.voteCollection.dispose();
       this.remove();
       return this;
+    },
+
+    getCoverUrl: function(cover) {
+      if (!cover) {
+        return null;
+      }
+
+      var url = window.location.protocol + '//' + window.location.host;
+      url += cover.slice(cover.indexOf('/attachments'));
+      return 'url("' + url + '")';
     },
 
     updateOnEnter: function(e) {
@@ -536,6 +549,10 @@
     },
 
     refreshCardOrder: function() {
+      console.log("refresh card order");
+      this.render();
+      this.refreshCardOrderNumber();
+      return;
       var thatView = this;
       var thatModel = this.model;
 
@@ -768,7 +785,6 @@
         cantas.setTitle("Card|" + _this.model.get("title"));
 
         // Initialize views used in detail view.
-        _this.renderAssignView();
         _this.renderLabelView();
         _this.renderVoteView();
         _this.renderSubscribeStatus();
@@ -876,6 +892,31 @@
 
         return _this;
       });
+
+
+      
+      // TEMP TEMP TEMP
+      console.log("render menu view");
+      var menuView = new cantas.views.MenuView({
+        el: this.$('.card-options')
+      }).render();
+
+
+      console.log(this.model);
+      // TEMP: ADD SOME MENUES
+      var assignView = new cantas.views.CardAssignView({
+        model: this.model
+      });
+      menuView.addMenu(assignView);
+
+      var dueDateView = new cantas.views.CardDueDateView({
+        model: this.model
+      });
+      menuView.addMenu(dueDateView);
+
+      console.log(menuView);
+      // / TEMP TEMP TEMO
+
     },
 
     reportUploadError: function(context, errorMessage) {
@@ -1024,34 +1065,6 @@
       return false;
     },
 
-    renderAssignView: function() {
-      this.cardAssignView = new cantas.views.CardAssignView({
-        el: this.$el.find('div.window-assign'),
-        model: this.model,
-        attributes: {
-          expandedViewChain: this._expandedViewChain
-        }
-      });
-      this.cardAssignView.render();
-    },
-
-    toggleAssignWindow: function(event) {
-      event.stopPropagation();
-      if (this.cardAssignView.isExpanded === false) {
-        this.cardAssignView.render();
-        this.cardAssignView.$el.show();
-        this.cardAssignView.isExpanded = true;
-        // FIXME: scroll to cardAssignView
-        $('.modal-scrollable').scrollTop(0);
-        this.cardAssignView.attributes.expandedViewChain = cantas.utils.rememberMe(
-          this.cardAssignView,
-          this.cardAssignView.attributes.expandedViewChain
-        );
-      } else {
-        this.cardAssignView.collapse();
-      }
-    },
-
     renderLabelView: function() {
       this.labelAssignView = new cantas.views.LabelAssignView({
         el: this.$el.find('div.window-label'),
@@ -1175,10 +1188,6 @@
         this.commentView.remove();
       }
 
-      if (this.cardAssignView) {
-        this.cardAssignView.remove();
-      }
-
       if (this.labelAssignView) {
         this.labelAssignView.remove();
       }
@@ -1189,6 +1198,10 @@
 
       if (this.cardVoteView) {
         this.cardVoteView.remove();
+      }
+
+      if (this.cardDueDateView) {
+        this.cardDueDateView.remove();
       }
 
       this.cardLabelCollection.dispose();
@@ -1252,85 +1265,6 @@
     _concatAssignees: function() {
       var assignees = this.model.get("assignees");
       return assignees.length ? _.pluck(assignees, "username").join(", ") : "Assign...";
-    }
-
-  });
-
-  cantas.views.CardAssignView = Backbone.View.extend({
-
-    template: jade.compile($("#template-card-assign-view").text()),
-
-    events: {
-      "click .js-select-assignee": "selectAssignee",
-      "click .js-save-assignee": "saveAssignee",
-      "click .js-close-assign-window": "collapse",
-      "click .js-cancel-assign-window": "onAssignCancelClick"
-    },
-
-    initialize: function() {
-      this.isExpanded = false;
-    },
-
-    render: function() {
-      var members = this._getMembersToAssign();
-      this.$el.html(this.template({members: members}));
-    },
-
-    _getMembersToAssign: function() {
-      var assignees = _.pluck(this.model.get("assignees"), "_id");
-      var memberCollection = cantas.utils.getCurrentBoardView().memberCollection;
-      var members = memberCollection.toJSON().map(function(member) {
-        if (assignees.indexOf(member.userId._id) === -1) {
-          member.checked = false;
-        } else {
-          member.checked = true;
-        }
-        return member;
-      });
-      return members;
-    },
-
-    selectAssignee: function(event) {
-      event.stopPropagation();
-      var element = $(event.target);
-      var uid = element.data('uid');
-      if (!uid) {
-        element = element.parent();
-      }
-      element.toggleClass("checked");
-    },
-
-    saveAssignee: function(event) {
-      event.stopPropagation();
-      var newAssignees = [];
-      $("ul.assignee li.checked").each(function(index, element) {
-        var uid = $(element).data('uid');
-        newAssignees.push(uid);
-      });
-      var oldAssignees = _.pluck(this.model.get("assignees"), "_id");
-      if (!_.isEqual(newAssignees.sort(), oldAssignees.sort())) {
-        // update if assignees changed
-        this.model.patch({
-          assignees: newAssignees,
-          original: {assignees: oldAssignees}
-        });
-      }
-      // hide assign window
-      this.$el.find(".js-close-assign-window").trigger("click");
-    },
-
-    onAssignCancelClick: function(event) {
-      event.stopPropagation();
-      this.collapse();
-    },
-
-    collapse: function() {
-      this.$el.hide();
-      this.isExpanded = false;
-      this.attributes.expandedViewChain = cantas.utils.forgetMe(
-        this,
-        this.attributes.expandedViewChain
-      );
     }
 
   });
@@ -1709,5 +1643,68 @@
     }
 
   });
+
+
+
+  /**
+   * Static Card View
+   *  - Looks the same a normal card but does not have any interaction
+   *  - Links to the card details view inside of the parent board
+   *  - Useful for displaying cards on "My Cards" page and in search results
+   */
+  cantas.views.StaticCardView = cantas.views.CardView.extend({
+
+    className: "list-card list-card-static js-list-card",
+
+    metaTemplate: jade.compile($('#template-card-meta-view').text()),
+
+    // The DOM events specific to an item.
+    events: {
+      "click div.card": "showCardDetails"
+    },
+
+    initialize: function() {
+      cantas.views.CardView.prototype.initialize.apply(this);
+      _.bindAll(this, "showCardDetails");
+    },
+
+    render: function() {
+      cantas.views.CardView.prototype.render.apply(this);
+
+      // If the board is closed add a class to the card
+      if (this.model.get('board').isClosed) {
+        this.$el.addClass('card-closed');
+      }
+
+      // Append the meta data
+      this.$('.card-container').append(this.metaTemplate({
+        meta: this.getMetaString()
+      }));
+
+      return this;
+    },
+
+    showCardDetails: function() {
+      // Can't link to closed boards
+      if (this.model.get('board').isClosed) {
+        return;
+      }
+
+      // Link to details page
+      var cardUrl = ["card", this.model.get('_id'), $.slug(this.model.get('title'))].join('/');
+      cantas.appRouter.navigate(cardUrl, {trigger: true});
+    },
+
+    getMetaString: function() {
+      if (!this.model.get("list") || !this.model.get("board")) {
+        return null;
+      }
+
+      return "Posted under " + this.model.get("list").title +
+             " in " + this.model.get("board").title;
+    }
+
+  });
+
 
 }(jQuery, _, Backbone));

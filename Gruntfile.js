@@ -43,7 +43,8 @@ module.exports = function (grunt) {
           'public/javascripts/vendor/jquery.fileupload.js',
           'public/javascripts/vendor/jquery.fileupload-process.js',
           'public/javascripts/vendor/jquery.fileupload-image.js',
-          'public/javascripts/vendor/jquery.fileupload-validate.js'
+          'public/javascripts/vendor/jquery.fileupload-validate.js',
+          'public/javascripts/vendor/jquery.timepicker.js'
         ],
         dest: 'public/javascripts/dist/vendor.js'
       },
@@ -72,6 +73,7 @@ module.exports = function (grunt) {
           'public/javascripts/models/checklist.js',
           'public/javascripts/views/checklist.js',
           'public/javascripts/models/card.js',
+          'public/javascripts/views/cardDetails.js',
           'public/javascripts/views/card.js',
           'public/javascripts/models/comment.js',
           'public/javascripts/views/comment.js',
@@ -144,6 +146,7 @@ module.exports = function (grunt) {
           'public/javascripts/views/base.js',
           'public/javascripts/views/syncConfig.js',
           'public/javascripts/views/notification.js',
+          'public/javascripts/views/cardDetails.js',
           'public/javascripts/views/card.js',
           'public/javascripts/views/comment.js',
           'public/javascripts/sortable.js',
